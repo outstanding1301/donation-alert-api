@@ -31,7 +31,7 @@ public class Twip implements Platform {
     private Subject<String> messageObservable;
 
     public Twip(String key) throws IOException {
-        Document doc = Jsoup.connect("https://twip.kr/widgets/alertbox/3OR7gAG6EX").get();
+        Document doc = Jsoup.connect("https://twip.kr/widgets/alertbox/"+key).get();
         Elements scriptElements = doc.getElementsByTag("script");
         String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
 
