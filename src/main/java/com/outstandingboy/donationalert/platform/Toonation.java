@@ -57,7 +57,6 @@ public class Toonation extends WebSocketListener implements Platform {
         Pattern p = Pattern.compile("\"payload\":\"(.*)\",");
         Matcher m = p.matcher(script);
         if (m.find()) {
-            System.out.println(m.group(1));
             return m.group(1);
         }
         return null;
