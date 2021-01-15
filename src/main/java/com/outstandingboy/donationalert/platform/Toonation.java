@@ -1,6 +1,7 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
+import com.outstandingboy.donationalert.exception.TokenNotFoundException;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -8,8 +9,16 @@ import okhttp3.*;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Toonation extends WebSocketListener implements Platform {
     private String payload;
@@ -18,7 +27,17 @@ public class Toonation extends WebSocketListener implements Platform {
     private Subject<String> messageObservable;
     private boolean timeout = false;
 
-    public Toonation(String payload) {
+    public Toonation(String key) throws IOException {
+        Document doc = Jsoup.connect("https://toon.at/widget/alertbox/"+key).get();
+        Elements scriptElements = doc.getElementsByTag("script");
+        String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
+
+        String payload = parsePayload(script);
+
+        if (payload == null) {
+            throw new TokenNotFoundException("투네이션 페이로드를 찾을 수 없습니다.");
+        }
+
         this.payload = payload;
         OkHttpClient client = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -32,6 +51,16 @@ public class Toonation extends WebSocketListener implements Platform {
 
         donationObservable = PublishSubject.create();
         messageObservable = PublishSubject.create();
+    }
+
+    private String parsePayload(String script) {
+        Pattern p = Pattern.compile("\"payload\":\"(.*)\",");
+        Matcher m = p.matcher(script);
+        if (m.find()) {
+            System.out.println(m.group(1));
+            return m.group(1);
+        }
+        return null;
     }
 
     @Override
