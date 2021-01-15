@@ -1,7 +1,7 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
-import com.outstandingboy.donationalert.exception.TwipTokenNotFoundException;
+import com.outstandingboy.donationalert.exception.TokenNotFoundException;
 import com.outstandingboy.donationalert.exception.TwipVersionNotFoundException;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
@@ -42,7 +42,7 @@ public class Twip implements Platform {
             throw new TwipVersionNotFoundException("버전을 찾을 수 없습니다.");
         }
         if (token == null) {
-            throw new TwipTokenNotFoundException("토큰을 찾을 수 없습니다.");
+            throw new TokenNotFoundException("토큰을 찾을 수 없습니다.");
         }
 
         init(key, version, token);
