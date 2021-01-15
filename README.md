@@ -7,7 +7,19 @@
 
 ----
 
-# Start
+# 🚀 Start
+## Gradle (use [Jitpack](https://jitpack.io/))
+```gradle
+repositories {
+    ...
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    ...
+    compile 'com.github.outstanding1301:DonationAlertAPI:1.0.0'
+}
+```
 
 ## Twip
 ```java
@@ -43,7 +55,7 @@ toonation.subscribeDonation(donation -> {
 });
 ```
 
-# Docs
+# 📃 Docs
 
 ## Donation
 
@@ -66,9 +78,8 @@ toonation.subscribeDonation(donation -> {
 | getDonationObservable() | Subject<Donation> | 후원 알림 Subject 객체 반환 |
 | getMessageObservable() | Subject<String> | API 메시지 Subject 객체 반환 |
 
-# Dependencies
+# 💉 Dependencies
 ```gradle
-testCompile group: 'junit', name: 'junit', version: '4.12'
 implementation 'io.socket:socket.io-client:1.0.0'
 implementation  'io.reactivex.rxjava2:rxjava:2.1.16'
 implementation 'org.jsoup:jsoup:1.13.1'
