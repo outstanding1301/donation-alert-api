@@ -1,9 +1,9 @@
-# 💸 DonationAlertAPI
+# 💸 Donation Alert API
 [Twip](http://twip.kr/), [Toonation](https://toon.at/)의 후원 알림(Alertbox)을 받아올 수 있는 RxJava 기반 Java API  
 
 ![so much money](https://media.giphy.com/media/3orif1esInVTdhaNsk/giphy.gif)
 
-> [outstandingboy/DonationAlertAPI](https://github.com/outstanding1301/DonationAlertAPI)  
+> [outstandingboy/donation-alert-api](https://github.com/outstanding1301/donation-alert-api)  
 
 ----
 
@@ -17,7 +17,7 @@ repositories {
 
 dependencies {
     ...
-    compile 'com.github.outstanding1301:DonationAlertAPI:1.0.0'
+    compile 'com.github.outstanding1301:donation-alert-api:1.0.0'
 }
 ```
 
