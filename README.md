@@ -21,6 +21,25 @@ dependencies {
 }
 ```
 
+```maven
+<repositories>
+    ...
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+    ...
+</repositories>
+
+<dependency>
+    ...
+    <groupId>com.github.outstanding1301</groupId>
+    <artifactId>donation-alert-api</artifactId>
+    <version>1.0.0</version>
+    ...
+</dependency>
+```
+
 ## Twip
 ```java
 // Twip Alertbox URL의 마지막 https://twip.kr/widgets/alertbox/<YOUR_TWIP_KEY> 부분을 입력하세요.
