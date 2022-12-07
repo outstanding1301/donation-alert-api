@@ -1,13 +1,25 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
-
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'com.github.outstanding1301'
+            artifactId = 'donation-alert-api'
+            version = '1.0.0'
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
 group 'com.outstandingboy'
 version '1.0'
 
 sourceCompatibility = 1.8
-
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
