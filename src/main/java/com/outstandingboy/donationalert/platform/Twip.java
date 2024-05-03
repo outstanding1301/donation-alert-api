@@ -3,6 +3,7 @@ package com.outstandingboy.donationalert.platform;
 import com.outstandingboy.donationalert.entity.Donation;
 import com.outstandingboy.donationalert.exception.TokenNotFoundException;
 import com.outstandingboy.donationalert.exception.TwipVersionNotFoundException;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -140,13 +141,13 @@ public class Twip implements Platform {
     }
 
     @Override
-    public void subscribeDonation(Consumer<Donation> onNext) {
-        donationObservable.subscribe(onNext);
+    public Disposable subscribeDonation(Consumer<Donation> onNext) {
+        return donationObservable.subscribe(onNext);
     }
 
     @Override
-    public void subscribeMessage(Consumer<String> onNext) {
-        messageObservable.subscribe(onNext);
+    public Disposable subscribeMessage(Consumer<String> onNext) {
+        return messageObservable.subscribe(onNext);
     }
 
     public void close() {

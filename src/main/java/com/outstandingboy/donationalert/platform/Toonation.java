@@ -2,6 +2,7 @@ package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
 import com.outstandingboy.donationalert.exception.TokenNotFoundException;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -28,7 +29,7 @@ public class Toonation extends WebSocketListener implements Platform {
     private boolean timeout = false;
 
     public Toonation(String key) throws IOException {
-        Document doc = Jsoup.connect("https://toon.at/widget/alertbox/" + key).get();
+        Document doc = Jsoup.connect("https://toon.at/widget/alertbox/"+key).get();
         Elements scriptElements = doc.getElementsByTag("script");
         String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
 
@@ -40,11 +41,11 @@ public class Toonation extends WebSocketListener implements Platform {
 
         this.payload = payload;
         OkHttpClient client = new OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build();
         Request request = new Request.Builder()
-            .url("wss://toon.at:8071/" + payload)
-            .build();
+                .url("wss://toon.at:8071/"+payload)
+                .build();
 
         socket = client.newWebSocket(request, this);
         client.dispatcher().executorService().shutdown();
@@ -64,9 +65,9 @@ public class Toonation extends WebSocketListener implements Platform {
 
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
-        if (!timeout)
+        if(!timeout)
             messageObservable.onNext("투네이션에 연결되었습니다!");
-        else {
+        else{
             timeout = false;
         }
     }
@@ -78,7 +79,7 @@ public class Toonation extends WebSocketListener implements Platform {
             JSONObject json = (JSONObject) parser.parse(text);
             Donation donation = getDonation(json);
 
-            if (donation != null) {
+            if(donation != null) {
                 donationObservable.onNext(donation);
             }
         } catch (ParseException e) {
@@ -98,11 +99,11 @@ public class Toonation extends WebSocketListener implements Platform {
         webSocket.close(1000, null);
 
         OkHttpClient client = new OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .build();
         Request request = new Request.Builder()
-            .url("wss://toon.at:8071/" + payload)
-            .build();
+                .url("wss://toon.at:8071/"+payload)
+                .build();
 
         socket = client.newWebSocket(request, this);
     }
@@ -118,7 +119,8 @@ public class Toonation extends WebSocketListener implements Platform {
             donation.setAmount((long) json.get("amount"));
             donation.setComment((String) json.get("message"));
             return donation;
-        } catch (Exception e) {
+        }
+        catch (Exception e){
             return null;
         }
     }
@@ -132,13 +134,13 @@ public class Toonation extends WebSocketListener implements Platform {
     }
 
     @Override
-    public void subscribeDonation(Consumer<Donation> onNext) {
-        donationObservable.subscribe(onNext);
+    public Disposable subscribeDonation(Consumer<Donation> onNext) {
+        return donationObservable.subscribe(onNext);
     }
 
     @Override
-    public void subscribeMessage(Consumer<String> onNext) {
-        messageObservable.subscribe(onNext);
+    public Disposable subscribeMessage(Consumer<String> onNext) {
+        return messageObservable.subscribe(onNext);
     }
 
     public void close() {
