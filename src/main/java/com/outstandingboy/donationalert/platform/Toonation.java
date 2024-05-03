@@ -68,7 +68,6 @@ public class Toonation extends WebSocketListener implements Platform {
             messageObservable.onNext("투네이션에 연결되었습니다!");
         else{
             timeout = false;
-//            System.out.println("투네이션이 다시 연결되었습니다.");
         }
     }
 
@@ -94,7 +93,6 @@ public class Toonation extends WebSocketListener implements Platform {
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-//        System.out.println("투네이션 타임아웃, 재연결을 시도합니다.");
         timeout = true;
 
         webSocket.close(1000, null);
