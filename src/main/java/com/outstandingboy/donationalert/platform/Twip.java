@@ -72,9 +72,6 @@ public class Twip implements Platform {
             .on(Socket.EVENT_CONNECT_ERROR, (args) -> {
                 messageObservable.onNext("연결 오류가 발생했습니다.");
             })
-            .on(Socket.EVENT_ERROR, (args) -> {
-                messageObservable.onNext("오류가 발생했습니다.");
-            })
             .on("disconnect", (args) -> {
                 messageObservable.onNext("연결이 종료되었습니다.");
             })
