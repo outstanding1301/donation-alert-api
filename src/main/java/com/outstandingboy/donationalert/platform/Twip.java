@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -31,7 +30,7 @@ public class Twip implements Platform {
     private Subject<String> messageObservable;
 
     public Twip(String key) throws IOException {
-        Document doc = Jsoup.connect("https://twip.kr/widgets/alertbox/"+key).get();
+        Document doc = Jsoup.connect("https://twip.kr/widgets/alertbox/" + key).get();
         Elements scriptElements = doc.getElementsByTag("script");
         String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
 
@@ -53,8 +52,8 @@ public class Twip implements Platform {
     }
 
     private void init(String key, String version, String token) {
-        String uri = String.format("https://io.mytwip.net?alertbox_key="+key
-                +"&version="+version+"&token="+encodeURIComponent(token));
+        String uri = String.format("https://io.mytwip.net?alertbox_key=" + key
+            + "&version=" + version + "&token=" + encodeURIComponent(token));
 
         IO.Options opts = new IO.Options();
         String transports[] = {"websocket", "polling"};
@@ -68,36 +67,36 @@ public class Twip implements Platform {
         }
 
         socket.on(Socket.EVENT_CONNECT, (args) -> {
-            messageObservable.onNext("트윕에 연결되었습니다!");
-        })
-        .on(Socket.EVENT_CONNECT_ERROR, (args) -> {
-            messageObservable.onNext("연결 오류가 발생했습니다.");
-        })
-        .on(Socket.EVENT_ERROR, (args) -> {
-            messageObservable.onNext("오류가 발생했습니다.");
-        })
-        .on("disconnect", (args) -> {
-            messageObservable.onNext("연결이 종료되었습니다.");
-        })
-        .on("version not match", (args) -> {
-            messageObservable.onNext("트윕 버전이 일치하지 않습니다.");
-        })
-        .on("not allowed ip", (args) -> {
-            messageObservable.onNext("허용되지 않은 IP입니다.");
-        })
-        .on("new donate", (args) -> {
-            JSONParser parser = new JSONParser();
-            try {
-                JSONObject json = (JSONObject) parser.parse(args[0].toString());
-                Donation donation = getDonation(json);
+                messageObservable.onNext("트윕에 연결되었습니다!");
+            })
+            .on(Socket.EVENT_CONNECT_ERROR, (args) -> {
+                messageObservable.onNext("연결 오류가 발생했습니다.");
+            })
+            .on(Socket.EVENT_ERROR, (args) -> {
+                messageObservable.onNext("오류가 발생했습니다.");
+            })
+            .on("disconnect", (args) -> {
+                messageObservable.onNext("연결이 종료되었습니다.");
+            })
+            .on("version not match", (args) -> {
+                messageObservable.onNext("트윕 버전이 일치하지 않습니다.");
+            })
+            .on("not allowed ip", (args) -> {
+                messageObservable.onNext("허용되지 않은 IP입니다.");
+            })
+            .on("new donate", (args) -> {
+                JSONParser parser = new JSONParser();
+                try {
+                    JSONObject json = (JSONObject) parser.parse(args[0].toString());
+                    Donation donation = getDonation(json);
 
-                if(donation != null) {
-                    donationObservable.onNext(donation);
+                    if (donation != null) {
+                        donationObservable.onNext(donation);
+                    }
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
-            } catch (ParseException e) {
-                e.printStackTrace();
-            }
-        });
+            });
         socket.connect();
 
         donationObservable = PublishSubject.create();
@@ -112,6 +111,7 @@ public class Twip implements Platform {
         }
         return null;
     }
+
     private String parseToken(String script) {
         Pattern p = Pattern.compile("window.__TOKEN__ = '(.*)'");
         Matcher m = p.matcher(script);
@@ -121,7 +121,7 @@ public class Twip implements Platform {
         return null;
     }
 
-    private Donation getDonation(JSONObject json){
+    private Donation getDonation(JSONObject json) {
         try {
             Donation donation = new Donation();
             donation.setId((String) json.get("watcher_id"));
@@ -129,8 +129,7 @@ public class Twip implements Platform {
             donation.setAmount((long) json.get("amount"));
             donation.setComment((String) json.get("comment"));
             return donation;
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
     }
@@ -159,13 +158,11 @@ public class Twip implements Platform {
         socket.close();
     }
 
-    public static String encodeURIComponent(String s)
-    {
+    public static String encodeURIComponent(String s) {
         String result = null;
         try {
             result = URLEncoder.encode(s, "UTF-8").replaceAll("%", "%%");
-        }
-        catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException e) {
             result = s;
         }
         return result;
