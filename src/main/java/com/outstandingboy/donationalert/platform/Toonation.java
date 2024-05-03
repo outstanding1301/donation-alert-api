@@ -2,6 +2,7 @@ package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
 import com.outstandingboy.donationalert.exception.TokenNotFoundException;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -68,7 +69,6 @@ public class Toonation extends WebSocketListener implements Platform {
             messageObservable.onNext("투네이션에 연결되었습니다!");
         else{
             timeout = false;
-//            System.out.println("투네이션이 다시 연결되었습니다.");
         }
     }
 
@@ -94,7 +94,6 @@ public class Toonation extends WebSocketListener implements Platform {
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-//        System.out.println("투네이션 타임아웃, 재연결을 시도합니다.");
         timeout = true;
 
         webSocket.close(1000, null);
@@ -135,13 +134,13 @@ public class Toonation extends WebSocketListener implements Platform {
     }
 
     @Override
-    public void subscribeDonation(Consumer<Donation> onNext) {
-        donationObservable.subscribe(onNext);
+    public Disposable subscribeDonation(Consumer<Donation> onNext) {
+        return donationObservable.subscribe(onNext);
     }
 
     @Override
-    public void subscribeMessage(Consumer<String> onNext) {
-        messageObservable.subscribe(onNext);
+    public Disposable subscribeMessage(Consumer<String> onNext) {
+        return messageObservable.subscribe(onNext);
     }
 
     public void close() {
