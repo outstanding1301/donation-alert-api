@@ -1,8 +1,6 @@
 package com.outstandingboy.donationalert.exception;
 
-import java.io.IOException;
-
-public class TokenNotFoundException extends IOException {
+public class TokenNotFoundException extends RuntimeException {
     public TokenNotFoundException(String message) {
         super(message);
     }

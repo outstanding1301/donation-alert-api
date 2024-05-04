@@ -1,42 +1,50 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
+import com.outstandingboy.donationalert.entity.TwipDonationPayload;
 import com.outstandingboy.donationalert.exception.TokenNotFoundException;
 import com.outstandingboy.donationalert.exception.TwipVersionNotFoundException;
+import com.outstandingboy.donationalert.util.Gsons;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+import lombok.Getter;
+import lombok.SneakyThrows;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URISyntaxException;
+import java.net.URI;
 import java.net.URLEncoder;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class Twip implements Platform {
-    private Socket socket = null;
+    private final static Pattern VERSION_PATTERN = Pattern.compile("version: '(.*)'");
+    private final static Pattern TOKEN_PATTERN = Pattern.compile("window.__TOKEN__ = '(.*)'");
+    private Socket socket;
+    private final OkHttpClient client;
+    @Getter
     private Subject<Donation> donationObservable;
+    @Getter
     private Subject<String> messageObservable;
+    private final @Getter String key;
+    private final @Getter String version;
+    private final @Getter String token;
 
-    public Twip(String key) throws IOException {
-        Document doc = Jsoup.connect("https://twip.kr/widgets/alertbox/" + key).get();
-        Elements scriptElements = doc.getElementsByTag("script");
-        String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
-
-        String version = parseVersion(script);
-        String token = parseToken(script);
+    @SneakyThrows
+    public Twip(String key) {
+        this.key = key;
+        this.client = new OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .build();
+        String[] versionAndToken = initVersionAndToken(key);
+        this.version = versionAndToken[0];
+        this.token = versionAndToken[1];
 
         if (version == null) {
             throw new TwipVersionNotFoundException("버전을 찾을 수 없습니다.");
@@ -48,24 +56,15 @@ public class Twip implements Platform {
         init(key, version, token);
     }
 
-    public Twip(String key, String version, String token) {
-        init(key, version, token);
-    }
-
     private void init(String key, String version, String token) {
-        String uri = String.format("https://io.mytwip.net?alertbox_key=" + key
-            + "&version=" + version + "&token=" + encodeURIComponent(token));
+        String uri = String.format("https://io.mytwip.net?alertbox_key=%s&version=%s&token=%s",
+            key, version, encodeURIComponent(token));
 
         IO.Options opts = new IO.Options();
-        String transports[] = {"websocket", "polling"};
-        opts.transports = transports;
+        opts.transports = new String[]{"websocket", "polling"};
         opts.reconnection = true;
 
-        try {
-            socket = IO.socket(uri, opts);
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
+        socket = IO.socket(URI.create(uri), opts);
 
         socket.on(Socket.EVENT_CONNECT, (args) -> {
                 messageObservable.onNext("트윕에 연결되었습니다!");
@@ -86,16 +85,15 @@ public class Twip implements Platform {
                 messageObservable.onNext("허용되지 않은 IP입니다.");
             })
             .on("new donate", (args) -> {
-                JSONParser parser = new JSONParser();
-                try {
-                    JSONObject json = (JSONObject) parser.parse(args[0].toString());
-                    Donation donation = getDonation(json);
-
-                    if (donation != null) {
-                        donationObservable.onNext(donation);
-                    }
-                } catch (ParseException e) {
-                    e.printStackTrace();
+                TwipDonationPayload payload = Gsons.gson().fromJson(args[0].toString(), TwipDonationPayload.class);
+                Donation donation = Donation.builder()
+                    .id(payload.getWatcherId())
+                    .comment(payload.getComment())
+                    .nickName(payload.getNickname())
+                    .amount(payload.getAmount())
+                    .build();
+                if (donation.getId() != null) {
+                    donationObservable.onNext(donation);
                 }
             });
         socket.connect();
@@ -104,43 +102,36 @@ public class Twip implements Platform {
         messageObservable = PublishSubject.create();
     }
 
-    private String parseVersion(String script) {
-        Pattern p = Pattern.compile("version: '(.*)'");
-        Matcher m = p.matcher(script);
+    @SneakyThrows
+    private String[] initVersionAndToken(String key) {
+        Request request = new Request.Builder()
+            .url("https://twip.kr/widgets/alertbox/" + key)
+            .get()
+            .build();
+        String[] versionAndToken = new String[2];
+        Response res = client.newCall(request).execute();
+        if (res.isSuccessful()) {
+            String body = res.body().string();
+            versionAndToken[0] = parseVersion(body);
+            versionAndToken[1] = parseToken(body);
+        }
+        return versionAndToken;
+    }
+
+    private static String parseVersion(String script) {
+        Matcher m = VERSION_PATTERN.matcher(script);
         if (m.find()) {
             return m.group(1);
         }
         return null;
     }
 
-    private String parseToken(String script) {
-        Pattern p = Pattern.compile("window.__TOKEN__ = '(.*)'");
-        Matcher m = p.matcher(script);
+    private static String parseToken(String script) {
+        Matcher m = TOKEN_PATTERN.matcher(script);
         if (m.find()) {
             return m.group(1);
         }
         return null;
-    }
-
-    private Donation getDonation(JSONObject json) {
-        try {
-            Donation donation = new Donation();
-            donation.setId((String) json.get("watcher_id"));
-            donation.setNickName((String) json.get("nickname"));
-            donation.setAmount((long) json.get("amount"));
-            donation.setComment((String) json.get("comment"));
-            return donation;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public Subject<Donation> getDonationObservable() {
-        return donationObservable;
-    }
-
-    public Subject<String> getMessageObservable() {
-        return messageObservable;
     }
 
     @Override
@@ -159,13 +150,8 @@ public class Twip implements Platform {
         socket.close();
     }
 
+    @SneakyThrows
     public static String encodeURIComponent(String s) {
-        String result = null;
-        try {
-            result = URLEncoder.encode(s, "UTF-8").replaceAll("%", "%%");
-        } catch (UnsupportedEncodingException e) {
-            result = s;
-        }
-        return result;
+        return URLEncoder.encode(s, "UTF-8");
     }
 }

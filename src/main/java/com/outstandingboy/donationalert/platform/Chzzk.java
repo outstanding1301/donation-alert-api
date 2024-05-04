@@ -1,6 +1,7 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.google.gson.JsonObject;
+import com.outstandingboy.donationalert.entity.ChzzkDonationPayload;
 import com.outstandingboy.donationalert.entity.Donation;
 import com.outstandingboy.donationalert.util.Gsons;
 import io.reactivex.disposables.Disposable;
@@ -10,18 +11,15 @@ import io.reactivex.subjects.Subject;
 import okhttp3.*;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class Chzzk extends WebSocketListener implements Platform {
     private WebSocket socket;
-    private Subject<Donation> donationObservable;
-    private Subject<String> messageObservable;
+    private final Subject<Donation> donationObservable;
+    private final Subject<String> messageObservable;
 
-    private boolean timeout;
-    private boolean connected;
     private final String channelId;
     private final String chatChannelId;
     private final String accessToken;
@@ -91,20 +89,18 @@ public class Chzzk extends WebSocketListener implements Platform {
 
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
-        if (!connected) {
-            HashMap<String, Object> map = new HashMap<>();
-            HashMap<String, Object> body = new HashMap<>();
-            body.put("accTkn", accessToken);
-            body.put("auth", "READ");
-            body.put("uid", null);
-            map.put("bdy", body);
-            map.put("cmd", 100);
-            map.put("tid", 1);
-            map.put("ver", "2");
-            map.put("cid", chatChannelId);
-            map.put("svcid", "game");
-            webSocket.send(Gsons.gson().toJson(map));
-        }
+        HashMap<String, Object> map = new HashMap<>();
+        HashMap<String, Object> body = new HashMap<>();
+        body.put("accTkn", accessToken);
+        body.put("auth", "READ");
+        body.put("uid", null);
+        map.put("bdy", body);
+        map.put("cmd", 100);
+        map.put("tid", 1);
+        map.put("ver", "2");
+        map.put("cid", chatChannelId);
+        map.put("svcid", "game");
+        webSocket.send(Gsons.gson().toJson(map));
     }
 
     @Override
@@ -114,15 +110,16 @@ public class Chzzk extends WebSocketListener implements Platform {
         if (cmd == 10100) {
             messageObservable.onNext("치지직에 연결되었습니다!");
         } else if (cmd == 93102) {
-            JsonObject bdy = json.get("bdy").getAsJsonArray().get(0).getAsJsonObject();
-            Donation donation = new Donation();
-            JsonObject profile = Gsons.gson().fromJson(bdy.get("profile").getAsString(), JsonObject.class);
-            JsonObject extras = Gsons.gson().fromJson(bdy.get("extras").getAsString(), JsonObject.class);
-            donation.setId(profile.get("userIdHash").getAsString());
-            donation.setAmount(extras.get("payAmount").getAsLong());
-            donation.setNickName(profile.get("nickname").getAsString());
-            donation.setComment(bdy.get("msg").getAsString());
-            donationObservable.onNext(donation);
+            ChzzkDonationPayload payload = Gsons.gson().fromJson(text, ChzzkDonationPayload.class);
+            Donation donation = Donation.builder()
+                .id(payload.getBody().getProfile().getUserIdHash())
+                .comment(payload.getBody().getMsg())
+                .nickName(payload.getBody().getProfile().getNickname())
+                .amount(payload.getBody().getExtras().getPayAmount())
+                .build();
+            if (donation.getId() != null) {
+                donationObservable.onNext(donation);
+            }
         }
     }
 
@@ -133,7 +130,6 @@ public class Chzzk extends WebSocketListener implements Platform {
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-        timeout = true;
         webSocket.close(1000, null);
         connectToWebSocket();
     }

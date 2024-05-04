@@ -1,51 +1,49 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.entity.Donation;
+import com.outstandingboy.donationalert.entity.ToonationDonationPayload;
+import com.outstandingboy.donationalert.entity.TwipDonationPayload;
 import com.outstandingboy.donationalert.exception.TokenNotFoundException;
+import com.outstandingboy.donationalert.util.Gsons;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
+import lombok.Getter;
+import lombok.SneakyThrows;
 import okhttp3.*;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class Toonation extends WebSocketListener implements Platform {
-    private String payload;
+    private final static Pattern PAYLOAD_PATTERN = Pattern.compile("\"payload\":\"(.*)\",");
+    private final OkHttpClient client;
+    private final @Getter String key;
+    private final @Getter String payload;
     private WebSocket socket;
+    @Getter
     private Subject<Donation> donationObservable;
+    @Getter
     private Subject<String> messageObservable;
     private boolean timeout = false;
 
-    public Toonation(String key) throws IOException {
-        Document doc = Jsoup.connect("https://toon.at/widget/alertbox/"+key).get();
-        Elements scriptElements = doc.getElementsByTag("script");
-        String script = scriptElements.stream().filter(e -> !e.hasAttr("src")).map(Element::toString).collect(Collectors.joining());
+    public Toonation(String key) {
+        this.key = key;
+        this.client = new OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .build();
 
-        String payload = parsePayload(script);
+        this.payload = getPayload(key);
 
         if (payload == null) {
             throw new TokenNotFoundException("투네이션 페이로드를 찾을 수 없습니다.");
         }
 
-        this.payload = payload;
-        OkHttpClient client = new OkHttpClient.Builder()
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .build();
         Request request = new Request.Builder()
-                .url("wss://toon.at:8071/"+payload)
-                .build();
+            .url("wss://toon.at:8071/" + payload)
+            .build();
 
         socket = client.newWebSocket(request, this);
         client.dispatcher().executorService().shutdown();
@@ -54,36 +52,46 @@ public class Toonation extends WebSocketListener implements Platform {
         messageObservable = PublishSubject.create();
     }
 
-    private String parsePayload(String script) {
-        Pattern p = Pattern.compile("\"payload\":\"(.*)\",");
-        Matcher m = p.matcher(script);
-        if (m.find()) {
-            return m.group(1);
+    @SneakyThrows
+    private String getPayload(String key) {
+        Request request = new Request.Builder()
+            .url("https://toon.at/widget/alertbox/" + key)
+            .get()
+            .build();
+        Response res = client.newCall(request).execute();
+        if (res.isSuccessful()) {
+            String body = res.body().string();
+            Matcher m = PAYLOAD_PATTERN.matcher(body);
+            if (m.find()) {
+                return m.group(1);
+            }
         }
         return null;
     }
 
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
-        if(!timeout)
+        if (!timeout)
             messageObservable.onNext("투네이션에 연결되었습니다!");
-        else{
+        else {
             timeout = false;
         }
     }
 
     @Override
     public void onMessage(WebSocket webSocket, String text) {
-        JSONParser parser = new JSONParser();
-        try {
-            JSONObject json = (JSONObject) parser.parse(text);
-            Donation donation = getDonation(json);
-
-            if(donation != null) {
-                donationObservable.onNext(donation);
-            }
-        } catch (ParseException e) {
-            e.printStackTrace();
+        ToonationDonationPayload payload = Gsons.gson().fromJson(text, ToonationDonationPayload.class);
+        if (payload.getContent() == null) {
+            return;
+        }
+        Donation donation = Donation.builder()
+            .id(payload.getContent().getAccount())
+            .comment(payload.getContent().getMessage())
+            .nickName(payload.getContent().getName())
+            .amount(payload.getContent().getAmount())
+            .build();
+        if (donation.getId() != null) {
+            donationObservable.onNext(donation);
         }
     }
 
@@ -99,38 +107,13 @@ public class Toonation extends WebSocketListener implements Platform {
         webSocket.close(1000, null);
 
         OkHttpClient client = new OkHttpClient.Builder()
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .build();
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .build();
         Request request = new Request.Builder()
-                .url("wss://toon.at:8071/"+payload)
-                .build();
+            .url("wss://toon.at:8071/" + payload)
+            .build();
 
         socket = client.newWebSocket(request, this);
-    }
-
-    private Donation getDonation(JSONObject json) {
-        try {
-            if (!json.containsKey("content")) return null;
-            json = (JSONObject) json.get("content");
-
-            Donation donation = new Donation();
-            donation.setId((String) json.get("account"));
-            donation.setNickName((String) json.get("name"));
-            donation.setAmount((long) json.get("amount"));
-            donation.setComment((String) json.get("message"));
-            return donation;
-        }
-        catch (Exception e){
-            return null;
-        }
-    }
-
-    public Subject<Donation> getDonationObservable() {
-        return donationObservable;
-    }
-
-    public Subject<String> getMessageObservable() {
-        return messageObservable;
     }
 
     @Override
