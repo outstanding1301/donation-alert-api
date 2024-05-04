@@ -30,7 +30,13 @@ public class ChzzkDonationPayload {
 
         public Profile getProfile() {
             if (profile == null) {
-                profile = Gsons.gson().fromJson(profileStr, Profile.class);
+                if (profileStr == null) {
+                    profile = new Profile();
+                    profile.userIdHash = "anonymous";
+                    profile.nickname = "익명의 후원자";
+                } else {
+                    profile = Gsons.gson().fromJson(profileStr, Profile.class);
+                }
             }
             return profile;
         }
