@@ -130,6 +130,7 @@ public class Chzzk extends WebSocketListener implements Platform {
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+        t.printStackTrace();
         webSocket.close(1000, null);
         connectToWebSocket();
     }
