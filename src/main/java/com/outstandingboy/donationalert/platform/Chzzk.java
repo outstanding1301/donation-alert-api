@@ -120,6 +120,8 @@ public class Chzzk extends WebSocketListener implements Platform {
             if (donation.getId() != null) {
                 donationObservable.onNext(donation);
             }
+        } else if (cmd == 0) {
+            webSocket.send("{\"cmd\": 10000, \"ver\": 2}");
         }
     }
 
