@@ -16,6 +16,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +40,6 @@ public class Twip implements Platform, Closeable {
             .build(), new Topic<>(), new Topic<>());
     }
 
-    @SneakyThrows
     public Twip(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
         this.key = key;
         this.client = client;
@@ -96,7 +96,6 @@ public class Twip implements Platform, Closeable {
         socket.connect();
     }
 
-    @SneakyThrows
     private void initVersionAndToken(String key) {
         Request request = new Request.Builder()
             .url("https://twip.kr/widgets/alertbox/" + key)
@@ -115,6 +114,8 @@ public class Twip implements Platform, Closeable {
                     throw new TokenNotFoundException("토큰을 찾을 수 없습니다.");
                 }
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

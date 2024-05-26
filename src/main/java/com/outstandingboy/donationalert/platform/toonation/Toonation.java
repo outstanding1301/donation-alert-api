@@ -7,10 +7,10 @@ import com.outstandingboy.donationalert.common.util.Gsons;
 import com.outstandingboy.donationalert.platform.Platform;
 import com.outstandingboy.donationalert.platform.toonation.entity.ToonationPayload;
 import lombok.Getter;
-import lombok.SneakyThrows;
 import okhttp3.*;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,13 +34,12 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
     public Toonation(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
         this.key = key;
         this.client = client;
+        this.donationTopic = donationTopic;
+        this.messageTopic = messageTopic;
         this.payload = getPayload(key);
 
         initSocket();
         client.dispatcher().executorService().shutdown();
-
-        this.donationTopic = donationTopic;
-        this.messageTopic = messageTopic;
     }
 
     private void initSocket() {
@@ -51,7 +50,6 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
         socket = client.newWebSocket(request, this);
     }
 
-    @SneakyThrows
     private String getPayload(String key) {
         Request request = new Request.Builder()
             .url("https://toon.at/widget/alertbox/" + key)
@@ -65,6 +63,8 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
                     return m.group(1);
                 }
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
         throw new TokenNotFoundException("투네이션 페이로드를 찾을 수 없습니다.");
     }
