@@ -17,10 +17,8 @@ import java.util.concurrent.TimeUnit;
 
 public class Chzzk extends WebSocketListener implements Platform, Closeable {
     private WebSocket socket;
-
     private final @Getter Topic<Donation> donationTopic;
     private final @Getter Topic<String> messageTopic;
-
     private final String channelId;
     private final String chatChannelId;
     private final String accessToken;
@@ -28,9 +26,7 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
     private final OkHttpClient client;
 
     public Chzzk(String channelId) {
-        this.channelId = channelId;
-        this.wsId = Math.abs(channelId.chars().sum()) % 9 + 1;
-        this.client = new OkHttpClient.Builder()
+        this(channelId, new OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .addInterceptor(chain -> {
                 Request original = chain.request();
@@ -39,12 +35,19 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
                     .build();
                 return chain.proceed(authorized);
             })
-            .build();
+            .build(), new Topic<>(), new Topic<>());
+    }
+
+    public Chzzk(String channelId, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
+        this.channelId = channelId;
+        this.client = client;
+        this.donationTopic = donationTopic;
+        this.messageTopic = messageTopic;
+
+        this.wsId = Math.abs(channelId.chars().sum()) % 9 + 1;
         this.chatChannelId = getChatChannelId();
         accessToken = getAccessToken();
         connectToWebSocket();
-        donationTopic = new Topic<>();
-        messageTopic = new Topic<>();
     }
 
     private void connectToWebSocket() {
@@ -59,17 +62,16 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
             .url("https://api.chzzk.naver.com/service/v2/channels/" + channelId + "/live-detail")
             .get()
             .build();
-        try {
-            Response res = client.newCall(request).execute();
+        try (Response res = client.newCall(request).execute()) {
             if (res.isSuccessful()) {
                 Map<String, Object> map = Gsons.gson().fromJson(res.body().string(), Map.class);
                 Map<String, Object> content = (Map<String, Object>) map.get("content");
                 return content.get("chatChannelId").toString();
             }
-            throw new RuntimeException("Failed to get Chat Channel ID from " + channelId);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        throw new RuntimeException("Failed to get Chat Channel ID from " + channelId);
     }
 
     private String getAccessToken() {
@@ -77,9 +79,7 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
             .url("https://comm-api.game.naver.com/nng_main/v1/chats/access-token?channelId=" + chatChannelId + "&chatType=STREAMING")
             .get()
             .build();
-        Response res = null;
-        try {
-            res = client.newCall(request).execute();
+        try (Response res = client.newCall(request).execute()){
             JsonObject json = Gsons.gson().fromJson(res.body().string(), JsonObject.class);
             JsonObject content = json.get("content").getAsJsonObject();
             return content.get("accessToken").getAsString();
