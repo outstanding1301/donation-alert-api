@@ -1,6 +1,7 @@
 package com.outstandingboy.donationalert.platform.twip;
 
 import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.common.entity.Message;
 import com.outstandingboy.donationalert.common.event.Topic;
 import com.outstandingboy.donationalert.common.exception.TokenNotFoundException;
 import com.outstandingboy.donationalert.common.util.Gsons;
@@ -29,7 +30,8 @@ public class Twip implements Platform, Closeable {
     private Socket socket;
     private final OkHttpClient client;
     private final @Getter Topic<Donation> donationTopic;
-    private final @Getter Topic<String> messageTopic;
+    private final @Getter Topic<Message> messageTopic;
+    private final @Getter Topic<String> legacyMessageTopic;
     private final @Getter String key;
     private @Getter String version;
     private @Getter String token;
@@ -37,14 +39,15 @@ public class Twip implements Platform, Closeable {
     public Twip(String key) {
         this(key, new OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build(), new Topic<>(), new Topic<>());
+            .build(), new Topic<>(), new Topic<>(), new Topic<>());
     }
 
-    public Twip(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
+    public Twip(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<Message> messageTopic, Topic<String> legacyMessageTopic) {
         this.key = key;
         this.client = client;
         this.donationTopic = donationTopic;
         this.messageTopic = messageTopic;
+        this.legacyMessageTopic = legacyMessageTopic;
         init();
     }
 
@@ -64,22 +67,28 @@ public class Twip implements Platform, Closeable {
         socket = IO.socket(URI.create(uri), opts);
 
         socket.on(Socket.EVENT_CONNECT, (args) -> {
-                messageTopic.publish("트윕에 연결되었습니다!");
+                legacyMessageTopic.publish("트윕에 연결되었습니다!");
+                messageTopic.publish(new Message(Message.Key.TWIP_CONNECT, args));
             })
             .on(Socket.EVENT_CONNECT_ERROR, (args) -> {
-                messageTopic.publish("연결 오류가 발생했습니다."); // TODO: ErrorTopic
+                legacyMessageTopic.publish("연결 오류가 발생했습니다.");
+                messageTopic.publish(new Message(Message.Key.TWIP_CONNECT_ERROR, args));
             })
             .on(Socket.EVENT_ERROR, (args) -> {
-                messageTopic.publish("오류가 발생했습니다."); // TODO: ErrorTopic
+                legacyMessageTopic.publish("오류가 발생했습니다.");
+                messageTopic.publish(new Message(Message.Key.TWIP_ERROR, args));
             })
-            .on("disconnect", (args) -> {
-                messageTopic.publish("연결이 종료되었습니다.");
+            .on(Socket.EVENT_DISCONNECT, (args) -> {
+                legacyMessageTopic.publish("연결이 종료되었습니다.");
+                messageTopic.publish(new Message(Message.Key.TWIP_DISCONNECT, args));
             })
             .on("version not match", (args) -> {
-                messageTopic.publish("트윕 버전이 일치하지 않습니다."); // TODO: ErrorTopic
+                legacyMessageTopic.publish("트윕 버전이 일치하지 않습니다.");
+                messageTopic.publish(new Message(Message.Key.TWIP_VERSION_NOT_MATCH, args));
             })
             .on("not allowed ip", (args) -> {
-                messageTopic.publish("허용되지 않은 IP입니다."); // TODO: ErrorTopic
+                legacyMessageTopic.publish("허용되지 않은 IP입니다.");
+                messageTopic.publish(new Message(Message.Key.TWIP_NOT_ALLOWED_IP, args));
             })
             .on("new donate", (args) -> {
                 TwipPayload payload = Gsons.gson().fromJson(args[0].toString(), TwipPayload.class);
@@ -92,6 +101,7 @@ public class Twip implements Platform, Closeable {
                 if (donation.getId() != null) {
                     donationTopic.publish(donation);
                 }
+                messageTopic.publish(new Message(Message.Key.TWIP_CONNECT, args));
             });
         socket.connect();
     }
@@ -138,7 +148,7 @@ public class Twip implements Platform, Closeable {
     @Override
     public void close() {
         donationTopic.close();
-        messageTopic.close();
+        legacyMessageTopic.close();
         socket.close();
     }
 

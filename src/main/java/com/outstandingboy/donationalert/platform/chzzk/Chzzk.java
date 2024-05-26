@@ -2,6 +2,7 @@ package com.outstandingboy.donationalert.platform.chzzk;
 
 import com.google.gson.JsonObject;
 import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.common.entity.Message;
 import com.outstandingboy.donationalert.common.event.Topic;
 import com.outstandingboy.donationalert.common.util.Gsons;
 import com.outstandingboy.donationalert.platform.Platform;
@@ -18,7 +19,8 @@ import java.util.concurrent.TimeUnit;
 public class Chzzk extends WebSocketListener implements Platform, Closeable {
     private WebSocket socket;
     private final @Getter Topic<Donation> donationTopic;
-    private final @Getter Topic<String> messageTopic;
+    private final @Getter Topic<Message> messageTopic;
+    private final @Getter Topic<String> legacyMessageTopic;
     private final String channelId;
     private final String chatChannelId;
     private final String accessToken;
@@ -35,14 +37,15 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
                     .build();
                 return chain.proceed(authorized);
             })
-            .build(), new Topic<>(), new Topic<>());
+            .build(), new Topic<>(), new Topic<>(), new Topic<>());
     }
 
-    public Chzzk(String channelId, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
+    public Chzzk(String channelId, OkHttpClient client, Topic<Donation> donationTopic, Topic<Message> messageTopic, Topic<String> legacyMessageTopic) {
         this.channelId = channelId;
         this.client = client;
         this.donationTopic = donationTopic;
         this.messageTopic = messageTopic;
+        this.legacyMessageTopic = legacyMessageTopic;
 
         this.wsId = Math.abs(channelId.chars().sum()) % 9 + 1;
         this.chatChannelId = getChatChannelId();
@@ -79,7 +82,7 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
             .url("https://comm-api.game.naver.com/nng_main/v1/chats/access-token?channelId=" + chatChannelId + "&chatType=STREAMING")
             .get()
             .build();
-        try (Response res = client.newCall(request).execute()){
+        try (Response res = client.newCall(request).execute()) {
             JsonObject json = Gsons.gson().fromJson(res.body().string(), JsonObject.class);
             JsonObject content = json.get("content").getAsJsonObject();
             return content.get("accessToken").getAsString();
@@ -90,6 +93,7 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
 
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
+        messageTopic.publish(new Message(Message.Key.CHZZK_OPEN, null));
         HashMap<String, Object> map = new HashMap<>();
         HashMap<String, Object> body = new HashMap<>();
         body.put("accTkn", accessToken);
@@ -106,10 +110,11 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
 
     @Override
     public void onMessage(WebSocket webSocket, String text) {
+        messageTopic.publish(new Message(Message.Key.CHZZK_MESSAGE, text));
         JsonObject json = Gsons.gson().fromJson(text, JsonObject.class);
         int cmd = json.get("cmd").getAsInt();
         if (cmd == 10100) {
-            messageTopic.publish("치지직에 연결되었습니다!");
+            legacyMessageTopic.publish("치지직에 연결되었습니다!");
         } else if (cmd == 93102) {
             ChzzkPayload payload = Gsons.gson().fromJson(text, ChzzkPayload.class);
             Donation donation = Donation.builder()
@@ -128,11 +133,13 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
 
     @Override
     public void onClosed(WebSocket webSocket, int code, String reason) {
-        messageTopic.publish("치지직 연결이 종료 되었습니다!");
+        messageTopic.publish(new Message(Message.Key.CHZZK_CLOSED, code));
+        legacyMessageTopic.publish("치지직 연결이 종료 되었습니다!");
     }
 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+        messageTopic.publish(new Message(Message.Key.CHZZK_FAILURE, t));
         t.printStackTrace();
         webSocket.close(1000, null);
         connectToWebSocket();
@@ -141,7 +148,7 @@ public class Chzzk extends WebSocketListener implements Platform, Closeable {
     @Override
     public void close() {
         donationTopic.close();
-        messageTopic.close();
+        legacyMessageTopic.close();
         socket.close(1000, null);
     }
 }
