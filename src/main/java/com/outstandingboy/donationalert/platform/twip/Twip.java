@@ -27,38 +27,33 @@ public class Twip implements Platform, Closeable {
     private final static Pattern TOKEN_PATTERN = Pattern.compile("window.__TOKEN__ = '(.*)'");
     private Socket socket;
     private final OkHttpClient client;
-
     private final @Getter Topic<Donation> donationTopic;
     private final @Getter Topic<String> messageTopic;
-
     private final @Getter String key;
-    private final @Getter String version;
-    private final @Getter String token;
+    private @Getter String version;
+    private @Getter String token;
 
-    @SneakyThrows
     public Twip(String key) {
-        this.key = key;
-        this.client = new OkHttpClient.Builder()
+        this(key, new OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
-        String[] versionAndToken = initVersionAndToken(key);
-        this.version = versionAndToken[0];
-        this.token = versionAndToken[1];
-
-        if (version == null) {
-            throw new TwipVersionNotFoundException("버전을 찾을 수 없습니다.");
-        }
-        if (token == null) {
-            throw new TokenNotFoundException("토큰을 찾을 수 없습니다.");
-        }
-
-        donationTopic = new Topic<>();
-        messageTopic = new Topic<>();
-
-        init(key, version, token);
+            .build(), new Topic<>(), new Topic<>());
     }
 
-    private void init(String key, String version, String token) {
+    @SneakyThrows
+    public Twip(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
+        this.key = key;
+        this.client = client;
+        this.donationTopic = donationTopic;
+        this.messageTopic = messageTopic;
+        init();
+    }
+
+    private void init() {
+        initVersionAndToken(key);
+        initSocket();
+    }
+
+    private void initSocket() {
         String uri = String.format("https://io.mytwip.net?alertbox_key=%s&version=%s&token=%s",
             key, version, encodeURIComponent(token));
 
@@ -102,19 +97,25 @@ public class Twip implements Platform, Closeable {
     }
 
     @SneakyThrows
-    private String[] initVersionAndToken(String key) {
+    private void initVersionAndToken(String key) {
         Request request = new Request.Builder()
             .url("https://twip.kr/widgets/alertbox/" + key)
             .get()
             .build();
-        String[] versionAndToken = new String[2];
-        Response res = client.newCall(request).execute();
-        if (res.isSuccessful()) {
-            String body = res.body().string();
-            versionAndToken[0] = parseVersion(body);
-            versionAndToken[1] = parseToken(body);
+
+        try (Response res = client.newCall(request).execute()) {
+            if (res.isSuccessful()) {
+                String body = res.body().string();
+                this.version = parseVersion(body);
+                if (version == null) {
+                    throw new TwipVersionNotFoundException("버전을 찾을 수 없습니다.");
+                }
+                this.token = parseToken(body);
+                if (token == null) {
+                    throw new TokenNotFoundException("토큰을 찾을 수 없습니다.");
+                }
+            }
         }
-        return versionAndToken;
     }
 
     private static String parseVersion(String script) {
