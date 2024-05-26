@@ -76,7 +76,7 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
     public void onOpen(WebSocket webSocket, Response response) {
         if (!timeout) {
             legacyMessageTopic.publish("투네이션에 연결되었습니다!");
-            messageTopic.publish(new Message<>(Message.Key.TOONATION_OPEN, null));
+            messageTopic.publish(new Message(Message.Key.TOONATION_OPEN, null));
         }
         else {
             timeout = false;
@@ -85,7 +85,7 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
 
     @Override
     public void onMessage(WebSocket webSocket, String text) {
-        messageTopic.publish(new Message<>(Message.Key.TOONATION_MESSAGE, text));
+        messageTopic.publish(new Message(Message.Key.TOONATION_MESSAGE, text));
 
         ToonationPayload payload = Gsons.gson().fromJson(text, ToonationPayload.class);
         if (payload.getContent() == null) {
