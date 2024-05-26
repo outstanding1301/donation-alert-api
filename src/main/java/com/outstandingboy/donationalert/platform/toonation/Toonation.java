@@ -26,26 +26,29 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
     private boolean timeout = false;
 
     public Toonation(String key) {
-        this.key = key;
-        this.client = new OkHttpClient.Builder()
+        this(key, new OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
+            .build(), new Topic<>(), new Topic<>());
+    }
 
+    public Toonation(String key, OkHttpClient client, Topic<Donation> donationTopic, Topic<String> messageTopic) {
+        this.key = key;
+        this.client = client;
         this.payload = getPayload(key);
 
-        if (payload == null) {
-            throw new TokenNotFoundException("투네이션 페이로드를 찾을 수 없습니다.");
-        }
+        initSocket();
+        client.dispatcher().executorService().shutdown();
 
+        this.donationTopic = donationTopic;
+        this.messageTopic = messageTopic;
+    }
+
+    private void initSocket() {
         Request request = new Request.Builder()
             .url("wss://toon.at:8071/" + payload)
             .build();
 
         socket = client.newWebSocket(request, this);
-        client.dispatcher().executorService().shutdown();
-
-        donationTopic = new Topic<>();
-        messageTopic = new Topic<>();
     }
 
     @SneakyThrows
@@ -54,15 +57,16 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
             .url("https://toon.at/widget/alertbox/" + key)
             .get()
             .build();
-        Response res = client.newCall(request).execute();
-        if (res.isSuccessful()) {
-            String body = res.body().string();
-            Matcher m = PAYLOAD_PATTERN.matcher(body);
-            if (m.find()) {
-                return m.group(1);
+        try (Response res = client.newCall(request).execute()) {
+            if (res.isSuccessful()) {
+                String body = res.body().string();
+                Matcher m = PAYLOAD_PATTERN.matcher(body);
+                if (m.find()) {
+                    return m.group(1);
+                }
             }
         }
-        return null;
+        throw new TokenNotFoundException("투네이션 페이로드를 찾을 수 없습니다.");
     }
 
     @Override
@@ -99,17 +103,8 @@ public class Toonation extends WebSocketListener implements Platform, Closeable 
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
         timeout = true;
-
         webSocket.close(1000, null);
-
-        OkHttpClient client = new OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
-        Request request = new Request.Builder()
-            .url("wss://toon.at:8071/" + payload)
-            .build();
-
-        socket = client.newWebSocket(request, this);
+        initSocket();
     }
 
     @Override
