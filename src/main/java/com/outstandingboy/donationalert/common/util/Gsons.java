@@ -1,4 +1,4 @@
-package com.outstandingboy.donationalert.util;
+package com.outstandingboy.donationalert.common.util;
 
 import com.google.gson.Gson;
 

@@ -1,4 +1,4 @@
-package com.outstandingboy.donationalert.exception;
+package com.outstandingboy.donationalert.common.exception;
 
 public class TokenNotFoundException extends RuntimeException {
     public TokenNotFoundException(String message) {

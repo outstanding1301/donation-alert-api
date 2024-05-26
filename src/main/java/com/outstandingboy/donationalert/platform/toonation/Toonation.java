@@ -1,10 +1,10 @@
-package com.outstandingboy.donationalert.platform;
+package com.outstandingboy.donationalert.platform.toonation;
 
-import com.outstandingboy.donationalert.entity.Donation;
-import com.outstandingboy.donationalert.entity.ToonationDonationPayload;
-import com.outstandingboy.donationalert.entity.TwipDonationPayload;
-import com.outstandingboy.donationalert.exception.TokenNotFoundException;
-import com.outstandingboy.donationalert.util.Gsons;
+import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.common.exception.TokenNotFoundException;
+import com.outstandingboy.donationalert.platform.Platform;
+import com.outstandingboy.donationalert.platform.toonation.entity.ToonationPayload;
+import com.outstandingboy.donationalert.common.util.Gsons;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
@@ -80,7 +80,7 @@ public class Toonation extends WebSocketListener implements Platform {
 
     @Override
     public void onMessage(WebSocket webSocket, String text) {
-        ToonationDonationPayload payload = Gsons.gson().fromJson(text, ToonationDonationPayload.class);
+        ToonationPayload payload = Gsons.gson().fromJson(text, ToonationPayload.class);
         if (payload.getContent() == null) {
             return;
         }

@@ -1,10 +1,10 @@
-package com.outstandingboy.donationalert.entity;
+package com.outstandingboy.donationalert.platform.toonation.entity;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 
 @Getter
-public class ToonationDonationPayload {
+public class ToonationPayload {
     @Getter
     public static class Content {
         @SerializedName("account")

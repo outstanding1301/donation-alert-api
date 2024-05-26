@@ -1,10 +1,10 @@
-package com.outstandingboy.donationalert.entity;
+package com.outstandingboy.donationalert.platform.twip.entity;
 
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 
 @Getter
-public class TwipDonationPayload {
+public class TwipPayload {
     @SerializedName("watcher_id")
     private String watcherId;
     @SerializedName("nickname")

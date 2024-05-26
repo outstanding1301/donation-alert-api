@@ -1,10 +1,11 @@
-package com.outstandingboy.donationalert.platform;
+package com.outstandingboy.donationalert.platform.twip;
 
-import com.outstandingboy.donationalert.entity.Donation;
-import com.outstandingboy.donationalert.entity.TwipDonationPayload;
-import com.outstandingboy.donationalert.exception.TokenNotFoundException;
-import com.outstandingboy.donationalert.exception.TwipVersionNotFoundException;
-import com.outstandingboy.donationalert.util.Gsons;
+import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.common.exception.TokenNotFoundException;
+import com.outstandingboy.donationalert.platform.Platform;
+import com.outstandingboy.donationalert.platform.twip.entity.TwipPayload;
+import com.outstandingboy.donationalert.common.util.Gsons;
+import com.outstandingboy.donationalert.platform.twip.error.TwipVersionNotFoundException;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
@@ -85,7 +86,7 @@ public class Twip implements Platform {
                 messageObservable.onNext("허용되지 않은 IP입니다.");
             })
             .on("new donate", (args) -> {
-                TwipDonationPayload payload = Gsons.gson().fromJson(args[0].toString(), TwipDonationPayload.class);
+                TwipPayload payload = Gsons.gson().fromJson(args[0].toString(), TwipPayload.class);
                 Donation donation = Donation.builder()
                     .id(payload.getWatcherId())
                     .comment(payload.getComment())

@@ -1,9 +1,10 @@
-package com.outstandingboy.donationalert.platform;
+package com.outstandingboy.donationalert.platform.chzzk;
 
 import com.google.gson.JsonObject;
-import com.outstandingboy.donationalert.entity.ChzzkDonationPayload;
-import com.outstandingboy.donationalert.entity.Donation;
-import com.outstandingboy.donationalert.util.Gsons;
+import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.platform.Platform;
+import com.outstandingboy.donationalert.common.util.Gsons;
+import com.outstandingboy.donationalert.platform.chzzk.entity.ChzzkPayload;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
@@ -110,7 +111,7 @@ public class Chzzk extends WebSocketListener implements Platform {
         if (cmd == 10100) {
             messageObservable.onNext("치지직에 연결되었습니다!");
         } else if (cmd == 93102) {
-            ChzzkDonationPayload payload = Gsons.gson().fromJson(text, ChzzkDonationPayload.class);
+            ChzzkPayload payload = Gsons.gson().fromJson(text, ChzzkPayload.class);
             Donation donation = Donation.builder()
                 .id(payload.getBody().getProfile().getUserIdHash())
                 .comment(payload.getBody().getMsg())

@@ -1,4 +1,4 @@
-package com.outstandingboy.donationalert.entity;
+package com.outstandingboy.donationalert.common.entity;
 
 import lombok.Builder;
 import lombok.Getter;

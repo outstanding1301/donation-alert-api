@@ -1,6 +1,6 @@
 package com.outstandingboy.donationalert.platform;
 
-import com.outstandingboy.donationalert.entity.Donation;
+import com.outstandingboy.donationalert.common.entity.Donation;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.Subject;

@@ -1,4 +1,4 @@
-package com.outstandingboy.donationalert.exception;
+package com.outstandingboy.donationalert.platform.twip.error;
 
 public class TwipVersionNotFoundException extends RuntimeException {
     public TwipVersionNotFoundException(String message) {

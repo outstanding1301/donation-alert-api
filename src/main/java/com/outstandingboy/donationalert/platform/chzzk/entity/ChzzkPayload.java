@@ -1,12 +1,12 @@
-package com.outstandingboy.donationalert.entity;
+package com.outstandingboy.donationalert.platform.chzzk.entity;
 
 import com.google.gson.annotations.SerializedName;
-import com.outstandingboy.donationalert.util.Gsons;
+import com.outstandingboy.donationalert.common.util.Gsons;
 import lombok.Getter;
 
 import java.util.List;
 
-public class ChzzkDonationPayload {
+public class ChzzkPayload {
     public static class Body {
         @Getter
         public static class Profile {
