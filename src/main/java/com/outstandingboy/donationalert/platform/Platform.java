@@ -1,18 +1,10 @@
 package com.outstandingboy.donationalert.platform;
 
 import com.outstandingboy.donationalert.common.entity.Donation;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.subjects.Subject;
+import com.outstandingboy.donationalert.common.event.Topic;
 
 public interface Platform {
-    Disposable subscribeDonation(Consumer<Donation> onNext);
+    Topic<Donation> getDonationTopic();
 
-    Disposable subscribeMessage(Consumer<String> onNext);
-
-    void close();
-
-    Subject<Donation> getDonationObservable();
-
-    Subject<String> getMessageObservable();
+    Topic<String> getMessageTopic();
 }

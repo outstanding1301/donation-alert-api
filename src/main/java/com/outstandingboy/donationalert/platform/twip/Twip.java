@@ -1,15 +1,12 @@
 package com.outstandingboy.donationalert.platform.twip;
 
 import com.outstandingboy.donationalert.common.entity.Donation;
+import com.outstandingboy.donationalert.common.event.Topic;
 import com.outstandingboy.donationalert.common.exception.TokenNotFoundException;
+import com.outstandingboy.donationalert.common.util.Gsons;
 import com.outstandingboy.donationalert.platform.Platform;
 import com.outstandingboy.donationalert.platform.twip.entity.TwipPayload;
-import com.outstandingboy.donationalert.common.util.Gsons;
 import com.outstandingboy.donationalert.platform.twip.error.TwipVersionNotFoundException;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.subjects.PublishSubject;
-import io.reactivex.subjects.Subject;
 import io.socket.client.IO;
 import io.socket.client.Socket;
 import lombok.Getter;
@@ -18,21 +15,22 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import java.io.Closeable;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Twip implements Platform {
+public class Twip implements Platform, Closeable {
     private final static Pattern VERSION_PATTERN = Pattern.compile("version: '(.*)'");
     private final static Pattern TOKEN_PATTERN = Pattern.compile("window.__TOKEN__ = '(.*)'");
     private Socket socket;
     private final OkHttpClient client;
-    @Getter
-    private Subject<Donation> donationObservable;
-    @Getter
-    private Subject<String> messageObservable;
+
+    private final @Getter Topic<Donation> donationTopic;
+    private final @Getter Topic<String> messageTopic;
+
     private final @Getter String key;
     private final @Getter String version;
     private final @Getter String token;
@@ -54,6 +52,9 @@ public class Twip implements Platform {
             throw new TokenNotFoundException("토큰을 찾을 수 없습니다.");
         }
 
+        donationTopic = new Topic<>();
+        messageTopic = new Topic<>();
+
         init(key, version, token);
     }
 
@@ -68,22 +69,22 @@ public class Twip implements Platform {
         socket = IO.socket(URI.create(uri), opts);
 
         socket.on(Socket.EVENT_CONNECT, (args) -> {
-                messageObservable.onNext("트윕에 연결되었습니다!");
+                messageTopic.publish("트윕에 연결되었습니다!");
             })
             .on(Socket.EVENT_CONNECT_ERROR, (args) -> {
-                messageObservable.onNext("연결 오류가 발생했습니다.");
+                messageTopic.publish("연결 오류가 발생했습니다."); // TODO: ErrorTopic
             })
             .on(Socket.EVENT_ERROR, (args) -> {
-                messageObservable.onNext("오류가 발생했습니다.");
+                messageTopic.publish("오류가 발생했습니다."); // TODO: ErrorTopic
             })
             .on("disconnect", (args) -> {
-                messageObservable.onNext("연결이 종료되었습니다.");
+                messageTopic.publish("연결이 종료되었습니다.");
             })
             .on("version not match", (args) -> {
-                messageObservable.onNext("트윕 버전이 일치하지 않습니다.");
+                messageTopic.publish("트윕 버전이 일치하지 않습니다."); // TODO: ErrorTopic
             })
             .on("not allowed ip", (args) -> {
-                messageObservable.onNext("허용되지 않은 IP입니다.");
+                messageTopic.publish("허용되지 않은 IP입니다."); // TODO: ErrorTopic
             })
             .on("new donate", (args) -> {
                 TwipPayload payload = Gsons.gson().fromJson(args[0].toString(), TwipPayload.class);
@@ -94,13 +95,10 @@ public class Twip implements Platform {
                     .amount(payload.getAmount())
                     .build();
                 if (donation.getId() != null) {
-                    donationObservable.onNext(donation);
+                    donationTopic.publish(donation);
                 }
             });
         socket.connect();
-
-        donationObservable = PublishSubject.create();
-        messageObservable = PublishSubject.create();
     }
 
     @SneakyThrows
@@ -136,18 +134,9 @@ public class Twip implements Platform {
     }
 
     @Override
-    public Disposable subscribeDonation(Consumer<Donation> onNext) {
-        return donationObservable.subscribe(onNext);
-    }
-
-    @Override
-    public Disposable subscribeMessage(Consumer<String> onNext) {
-        return messageObservable.subscribe(onNext);
-    }
-
     public void close() {
-        donationObservable.onComplete();
-        messageObservable.onComplete();
+        donationTopic.close();
+        messageTopic.close();
         socket.close();
     }
 

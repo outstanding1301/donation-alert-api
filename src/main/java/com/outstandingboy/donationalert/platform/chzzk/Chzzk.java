@@ -2,24 +2,24 @@ package com.outstandingboy.donationalert.platform.chzzk;
 
 import com.google.gson.JsonObject;
 import com.outstandingboy.donationalert.common.entity.Donation;
-import com.outstandingboy.donationalert.platform.Platform;
+import com.outstandingboy.donationalert.common.event.Topic;
 import com.outstandingboy.donationalert.common.util.Gsons;
+import com.outstandingboy.donationalert.platform.Platform;
 import com.outstandingboy.donationalert.platform.chzzk.entity.ChzzkPayload;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.subjects.PublishSubject;
-import io.reactivex.subjects.Subject;
+import lombok.Getter;
 import okhttp3.*;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class Chzzk extends WebSocketListener implements Platform {
+public class Chzzk extends WebSocketListener implements Platform, Closeable {
     private WebSocket socket;
-    private final Subject<Donation> donationObservable;
-    private final Subject<String> messageObservable;
+
+    private final @Getter Topic<Donation> donationTopic;
+    private final @Getter Topic<String> messageTopic;
 
     private final String channelId;
     private final String chatChannelId;
@@ -43,8 +43,8 @@ public class Chzzk extends WebSocketListener implements Platform {
         this.chatChannelId = getChatChannelId();
         accessToken = getAccessToken();
         connectToWebSocket();
-        donationObservable = PublishSubject.create();
-        messageObservable = PublishSubject.create();
+        donationTopic = new Topic<>();
+        messageTopic = new Topic<>();
     }
 
     private void connectToWebSocket() {
@@ -109,7 +109,7 @@ public class Chzzk extends WebSocketListener implements Platform {
         JsonObject json = Gsons.gson().fromJson(text, JsonObject.class);
         int cmd = json.get("cmd").getAsInt();
         if (cmd == 10100) {
-            messageObservable.onNext("치지직에 연결되었습니다!");
+            messageTopic.publish("치지직에 연결되었습니다!");
         } else if (cmd == 93102) {
             ChzzkPayload payload = Gsons.gson().fromJson(text, ChzzkPayload.class);
             Donation donation = Donation.builder()
@@ -119,7 +119,7 @@ public class Chzzk extends WebSocketListener implements Platform {
                 .amount(payload.getBody().getExtras().getPayAmount())
                 .build();
             if (donation.getId() != null) {
-                donationObservable.onNext(donation);
+                donationTopic.publish(donation);
             }
         } else if (cmd == 0) {
             webSocket.send("{\"cmd\": 10000, \"ver\": 2}");
@@ -128,7 +128,7 @@ public class Chzzk extends WebSocketListener implements Platform {
 
     @Override
     public void onClosed(WebSocket webSocket, int code, String reason) {
-        messageObservable.onNext("치지직 연결이 종료 되었습니다!");
+        messageTopic.publish("치지직 연결이 종료 되었습니다!");
     }
 
     @Override
@@ -139,29 +139,9 @@ public class Chzzk extends WebSocketListener implements Platform {
     }
 
     @Override
-    public Disposable subscribeDonation(Consumer<Donation> onNext) {
-        return donationObservable.subscribe(onNext);
-    }
-
-    @Override
-    public Disposable subscribeMessage(Consumer<String> onNext) {
-        return messageObservable.subscribe(onNext);
-    }
-
-    @Override
     public void close() {
-        donationObservable.onComplete();
-        messageObservable.onComplete();
+        donationTopic.close();
+        messageTopic.close();
         socket.close(1000, null);
-    }
-
-    @Override
-    public Subject<Donation> getDonationObservable() {
-        return donationObservable;
-    }
-
-    @Override
-    public Subject<String> getMessageObservable() {
-        return messageObservable;
     }
 }
